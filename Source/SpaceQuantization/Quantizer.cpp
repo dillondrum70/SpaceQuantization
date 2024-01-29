@@ -25,3 +25,14 @@ void AQuantizer::Tick(float DeltaTime)
 
 }
 
+
+FQuantizedSpace AQuantizer::Quantize(FVector Location)
+{
+	FQuantizedSpace Result;
+
+	Result.CellIndex.X = Location.X / Resolution;
+	Result.CellIndex.Y = Location.Y / Resolution;
+	Result.CellIndex.Z = Location.Z / Resolution;
+
+	return Result;
+}

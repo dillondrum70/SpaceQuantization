@@ -40,6 +40,6 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	UFUNCTION(BlueprintCallable)
-		FQuantizedSpace Quantize(FVector Location);
+	FQuantizedSpace Quantize(FVector Location);
 	
 };

@@ -6,6 +6,12 @@
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 
+FQuantizedSpace::FQuantizedSpace()
+{
+	Location = FIntVector2(0, 0);
+	Height = 0;
+}
+
 // Sets default values
 AQuantizer::AQuantizer()
 {
@@ -77,7 +83,7 @@ bool AQuantizer::SampleTerrainHeight(FIntVector StartLocation, FQuantizedSpace& 
 	}
 
 	FVector Start = (FVector)StartLocation;
-	FVector End = (FVector)StartLocation + (FVector::DownVector * SampleMaxHeight);
+	FVector End = (FVector)StartLocation + (FVector::DownVector * (SampleMaxHeight + SampleMaxDepth));
 
 	// Raycast down from location to terrain
 	FHitResult Hit;
@@ -91,6 +97,10 @@ bool AQuantizer::SampleTerrainHeight(FIntVector StartLocation, FQuantizedSpace& 
 	if (!bHitSuccessful)
 	{
 		UE_LOG(LogTemp, Error, TEXT("Raycast starting at (%i, %i, %i) did not hit"), StartLocation.X, StartLocation.Y, StartLocation.Z);
+
+		//Draw a red line where it failed
+		DrawDebugLine(World, Start, End, FColor::Red, true);
+
 		return false;
 	}
 
@@ -98,7 +108,7 @@ bool AQuantizer::SampleTerrainHeight(FIntVector StartLocation, FQuantizedSpace& 
 	OutResult.Height = Hit.Location.Z;
 
 	//Draw line check
-	DrawDebugLine(World, Start, FVector(Start.X, Start.Y, OutResult.Height), FColor::Red, true);
+	//DrawDebugLine(World, Start, FVector(Start.X, Start.Y, OutResult.Height), FColor::Green, true);
 
 	return true;
 }
@@ -115,11 +125,14 @@ void AQuantizer::Tick(float DeltaTime)
 
 FQuantizedSpace AQuantizer::Quantize(FVector Location)
 {
-	FQuantizedSpace Result;
+	FQuantizedSpace Result = FQuantizedSpace();
 
-	//Result.CellIndex.X = Location.X / Resolution;
-	//Result.CellIndex.Y = Location.Y / Resolution;
-	//Result.CellIndex.Z = Location.Z / Resolution;
+	Location.X = ((int)Location.X / Resolution) * Resolution;	//Rounds location to the location of the grid point at the corner of this cell
+	Location.Y = ((int)Location.Y / Resolution) * Resolution;	//Rounds location to the location of the grid point at the corner of this cell
+
+	FIntVector2 Coord = FIntVector2(Location.X, Location.Y);
+
+	Result = CachedHeightmap[Coord];
 
 	return Result;
 }

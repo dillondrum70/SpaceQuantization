@@ -9,6 +9,8 @@
 #include "Engine/World.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "Quantizer.h"
+#include "Kismet/GameplayStatics.h"
 
 ASpaceQuantizationPlayerController::ASpaceQuantizationPlayerController()
 {
@@ -28,6 +30,27 @@ void ASpaceQuantizationPlayerController::BeginPlay()
 	{
 		Subsystem->AddMappingContext(DefaultMappingContext, 0);
 	}
+
+	UWorld* World = GetWorld();
+
+	if (!World)
+	{
+		UE_LOG(LogTemp, Error, TEXT("World is null in ASpaceQuantizationPlayerController::BeginPlay"));
+		return;
+	}
+
+	Quantizer = nullptr;
+	Quantizer = StaticCast<AQuantizer*>(UGameplayStatics::GetActorOfClass(World, AQuantizer::StaticClass()));
+
+	if (Quantizer == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Quantizer is null in ASpaceQuantizationPlayerController::BeginPlay"));
+		return;
+	}
+	else
+	{
+		UE_LOG(LogTemp, Display, TEXT("Found Quantizer with name %s"), *Quantizer->GetName());
+	}
 }
 
 void ASpaceQuantizationPlayerController::SetupInputComponent()
@@ -44,74 +67,46 @@ void ASpaceQuantizationPlayerController::SetupInputComponent()
 		EnhancedInputComponent->BindAction(SetDestinationClickAction, ETriggerEvent::Completed, this, &ASpaceQuantizationPlayerController::OnSetDestinationReleased);
 		EnhancedInputComponent->BindAction(SetDestinationClickAction, ETriggerEvent::Canceled, this, &ASpaceQuantizationPlayerController::OnSetDestinationReleased);
 
-		// Setup touch input events
-		EnhancedInputComponent->BindAction(SetDestinationTouchAction, ETriggerEvent::Started, this, &ASpaceQuantizationPlayerController::OnInputStarted);
-		EnhancedInputComponent->BindAction(SetDestinationTouchAction, ETriggerEvent::Triggered, this, &ASpaceQuantizationPlayerController::OnTouchTriggered);
-		EnhancedInputComponent->BindAction(SetDestinationTouchAction, ETriggerEvent::Completed, this, &ASpaceQuantizationPlayerController::OnTouchReleased);
-		EnhancedInputComponent->BindAction(SetDestinationTouchAction, ETriggerEvent::Canceled, this, &ASpaceQuantizationPlayerController::OnTouchReleased);
+
+		EnhancedInputComponent->BindAction(SetDestinationClickAction, ETriggerEvent::Started, this, &ASpaceQuantizationPlayerController::OnInputStarted);
+		EnhancedInputComponent->BindAction(SetDestinationClickAction, ETriggerEvent::Triggered, this, &ASpaceQuantizationPlayerController::OnSetDestinationTriggered);
+		EnhancedInputComponent->BindAction(SetDestinationClickAction, ETriggerEvent::Completed, this, &ASpaceQuantizationPlayerController::OnSetDestinationReleased);
+		EnhancedInputComponent->BindAction(SetDestinationClickAction, ETriggerEvent::Canceled, this, &ASpaceQuantizationPlayerController::OnSetDestinationReleased);
 	}
 }
 
 void ASpaceQuantizationPlayerController::OnInputStarted()
 {
-	StopMovement();
+	
 }
 
 // Triggered every frame when the input is held down
 void ASpaceQuantizationPlayerController::OnSetDestinationTriggered()
 {
-	// We flag that the input is being pressed
-	FollowTime += GetWorld()->GetDeltaSeconds();
-	
 	// We look for the location in the world where the player has pressed the input
 	FHitResult Hit;
 	bool bHitSuccessful = false;
-	if (bIsTouch)
-	{
-		bHitSuccessful = GetHitResultUnderFinger(ETouchIndex::Touch1, ECollisionChannel::ECC_Visibility, true, Hit);
-	}
-	else
-	{
-		bHitSuccessful = GetHitResultUnderCursor(ECollisionChannel::ECC_Visibility, true, Hit);
-	}
+	bHitSuccessful = GetHitResultUnderCursor(ECollisionChannel::ECC_Visibility, true, Hit);
 
 	// If we hit a surface, cache the location
 	if (bHitSuccessful)
 	{
 		CachedDestination = Hit.Location;
 	}
-	
-	// Move towards mouse pointer or touch
-	APawn* ControlledPawn = GetPawn();
-	if (ControlledPawn != nullptr)
-	{
-		FVector WorldDirection = (CachedDestination - ControlledPawn->GetActorLocation()).GetSafeNormal();
-		ControlledPawn->AddMovementInput(WorldDirection, 1.0, false);
-	}
 }
 
 void ASpaceQuantizationPlayerController::OnSetDestinationReleased()
 {
-	// If it was a short press
-	if (FollowTime <= ShortPressThreshold)
-	{
-		// We move there and spawn some particles
-		UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, CachedDestination);
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, FXCursor, CachedDestination, FRotator::ZeroRotator, FVector(1.f, 1.f, 1.f), true, true, ENCPoolMethod::None, true);
-	}
-
-	FollowTime = 0.f;
+	
 }
 
-// Triggered every frame when the input is held down
-void ASpaceQuantizationPlayerController::OnTouchTriggered()
+void ASpaceQuantizationPlayerController::OnSetSourceTriggered()
 {
-	bIsTouch = true;
-	OnSetDestinationTriggered();
+
 }
 
-void ASpaceQuantizationPlayerController::OnTouchReleased()
+
+void ASpaceQuantizationPlayerController::OnSetSourceReleased()
 {
-	bIsTouch = false;
-	OnSetDestinationReleased();
+
 }

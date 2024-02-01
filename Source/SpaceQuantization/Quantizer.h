@@ -11,6 +11,8 @@ struct FQuantizedSpace
 {
 	GENERATED_BODY()
 
+	FQuantizedSpace();
+
 	FIntVector2 Location;	//2D location in the XY axes where this point lies, integer to avoid floating point errors and use as map key
 
 	float Height;	//Height in Z axis of this point
@@ -32,7 +34,11 @@ public:
 	UPROPERTY(EditAnywhere)
 	AActor* LandscapeActor;
 
-	float SampleMaxHeight = 10000;
+	UPROPERTY(EditAnywhere)
+	float SampleMaxHeight = 10000;	//Max height of terrain above 0
+
+	UPROPERTY(EditAnywhere)
+	float SampleMaxDepth = 5000;	//Max depth of terrain below 0
 
 	// Sets default values for this actor's properties
 	AQuantizer();

@@ -61,11 +61,12 @@ protected:
 	void OnSetSourceTriggered();
 	void OnSetSourceReleased();
 
-private:
-	FVector CachedDestination;
+	/** General function for getting raycast point */
+	bool GetPositionUnderCursor(FVector& OutPosition);
 
-	bool bIsTouch; // Is it a touch device
-	float FollowTime; // For how long it has been pressed
+private:
+	FVector CachedSource;
+	FVector CachedDestination;
 };
 
 

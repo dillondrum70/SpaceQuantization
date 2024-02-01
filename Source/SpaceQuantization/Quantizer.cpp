@@ -3,6 +3,9 @@
 
 #include "Quantizer.h"
 
+#include "Engine/World.h"
+#include "DrawDebugHelpers.h"
+
 // Sets default values
 AQuantizer::AQuantizer()
 {
@@ -16,12 +19,96 @@ void AQuantizer::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	GenerateHeightmap();
 }
+
+
+void AQuantizer::GenerateHeightmap()
+{
+	if (LandscapeActor == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("LandscapeActor is null in AQuantizer::GenerateHeightmap"));
+		return;
+	}
+
+	FVector Extents, Origin;
+
+	//Get bounds of landscape to calculate size
+	LandscapeActor->GetActorBounds(true, Origin, Extents);
+
+	Dimensions.X = Extents.X * 2;
+	Dimensions.Y = Extents.Y * 2;
+
+	UE_LOG(LogTemp, Display, TEXT("(%i, %i)"), Dimensions.X, Dimensions.Y);
+
+	//For every grid point
+	for (int x = 0; x < Dimensions.X; x += Resolution)
+	{
+		for (int y = 0; y < Dimensions.Y; y += Resolution)
+		{
+			FIntVector StartLocation = FIntVector(x, y, (int)SampleMaxHeight);
+
+			FQuantizedSpace NewSpace;
+
+			//Sample terrain
+			if (SampleTerrainHeight(StartLocation, NewSpace))
+			{
+				//Cache returned value
+				CachedHeightmap.Add(FIntVector2(x, y), NewSpace);
+			}
+			else
+			{
+				//Print if failed
+				UE_LOG(LogTemp, Warning, TEXT("Line trace missed terrain at (%i, %i)"), StartLocation.X, StartLocation.Y);
+			}
+		}
+	}
+}
+
+
+bool AQuantizer::SampleTerrainHeight(FIntVector StartLocation, FQuantizedSpace& OutResult)
+{
+	UWorld* World = GetWorld();
+
+	if (!World)
+	{
+		UE_LOG(LogTemp, Error, TEXT("AQuantizer::SampleTerrainHeight - How the hell is World null?"))
+		return false;
+	}
+
+	FVector Start = (FVector)StartLocation;
+	FVector End = (FVector)StartLocation + (FVector::DownVector * SampleMaxHeight);
+
+	// Raycast down from location to terrain
+	FHitResult Hit;
+	bool bHitSuccessful = World->LineTraceSingleByChannel(
+		Hit, 
+		Start, 
+		End,
+		ECollisionChannel::ECC_Visibility);
+
+	// If we hit a surface, cache the location
+	if (!bHitSuccessful)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Raycast starting at (%i, %i, %i) did not hit"), StartLocation.X, StartLocation.Y, StartLocation.Z);
+		return false;
+	}
+
+	OutResult.Location = FIntVector2(StartLocation.X, StartLocation.Y);
+	OutResult.Height = Hit.Location.Z;
+
+	//Draw line check
+	DrawDebugLine(World, Start, FVector(Start.X, Start.Y, OutResult.Height), FColor::Red, true);
+
+	return true;
+}
+
 
 // Called every frame
 void AQuantizer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
 
 }
 
@@ -30,9 +117,9 @@ FQuantizedSpace AQuantizer::Quantize(FVector Location)
 {
 	FQuantizedSpace Result;
 
-	Result.CellIndex.X = Location.X / Resolution;
-	Result.CellIndex.Y = Location.Y / Resolution;
-	Result.CellIndex.Z = Location.Z / Resolution;
+	//Result.CellIndex.X = Location.X / Resolution;
+	//Result.CellIndex.Y = Location.Y / Resolution;
+	//Result.CellIndex.Z = Location.Z / Resolution;
 
 	return Result;
 }

@@ -58,7 +58,21 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	/// <summary>
+	/// Evaluates a given point in terms of heightmap grid points, rounds to the point that corresponds to the cell the Location resides within
+	/// </summary>
+	/// <param name="Location"></param>
+	/// <returns></returns>
 	UFUNCTION(BlueprintCallable)
 	FQuantizedSpace Quantize(FVector Location);
+
+	/// <summary>
+	/// Compute the path between source and destination vectors
+	/// </summary>
+	/// <param name="Source"></param>
+	/// <param name="Destination"></param>
+	/// <returns>Success</returns>
+	UFUNCTION(BlueprintCallable)
+	bool ComputePath(FVector Source, FVector Destination);
 	
 };

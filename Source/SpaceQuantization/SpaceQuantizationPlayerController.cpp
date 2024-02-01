@@ -157,3 +157,17 @@ bool ASpaceQuantizationPlayerController::GetPositionUnderCursor(FVector& OutPosi
 
 	return bHitSuccessful;
 }
+
+
+bool ASpaceQuantizationPlayerController::ComputePath()
+{
+	if (Quantizer == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Quantizer is null in ASpaceQuantizationPlayerController::ComputePath"));
+		return false;
+	}
+
+	Quantizer->ComputePath(CachedSource, CachedDestination);
+
+	return true;
+}

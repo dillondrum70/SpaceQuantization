@@ -64,6 +64,9 @@ protected:
 	/** General function for getting raycast point */
 	bool GetPositionUnderCursor(FVector& OutPosition);
 
+	UFUNCTION(BlueprintCallable)
+	bool ComputePath();
+
 private:
 	FVector CachedSource;
 	FVector CachedDestination;

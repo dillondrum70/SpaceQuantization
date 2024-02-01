@@ -136,3 +136,13 @@ FQuantizedSpace AQuantizer::Quantize(FVector Location)
 
 	return Result;
 }
+
+
+bool AQuantizer::ComputePath(FVector Source, FVector Destination)
+{
+	FQuantizedSpace q = Quantize(Source);
+	DrawDebugSphere(GetWorld(), FVector(q.Location.X, q.Location.Y, q.Height), 50, 12, FColor::Cyan, true);
+	q = Quantize(Destination);
+	DrawDebugSphere(GetWorld(), FVector(q.Location.X, q.Location.Y, q.Height), 50, 12, FColor::Emerald, true);
+	return false;
+}

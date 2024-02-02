@@ -6,6 +6,12 @@
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 
+FGridMask::FGridMask()
+{
+
+}
+
+
 FQuantizedSpace::FQuantizedSpace()
 {
 	Location = FIntVector2(0, 0);
@@ -42,15 +48,21 @@ void AQuantizer::GenerateHeightmap()
 	//Get bounds of landscape to calculate size
 	LandscapeActor->GetActorBounds(true, Origin, Extents);
 
-	Dimensions.X = Extents.X * 2;
-	Dimensions.Y = Extents.Y * 2;
+	//Get Dimensions of landscape in Unreal units
+	LandscapeDimensions.X = Extents.X * 2;
+	LandscapeDimensions.Y = Extents.Y * 2;
 
-	UE_LOG(LogTemp, Display, TEXT("(%i, %i)"), Dimensions.X, Dimensions.Y);
+	//Get Dimensions in terms of grid points
+	GridDimensions.X = (int)LandscapeDimensions.X / Resolution;
+	GridDimensions.Y = (int)LandscapeDimensions.Y / Resolution;
+
+	UE_LOG(LogTemp, Display, TEXT("Landscape Dimensions: (%f, %f) \nGrid Dimensions: (%i, %i)"), 
+		LandscapeDimensions.X, LandscapeDimensions.Y, GridDimensions.X, GridDimensions.Y);
 
 	//For every grid point
-	for (int x = 0; x < Dimensions.X; x += Resolution)
+	for (int x = 0; x < LandscapeDimensions.X; x += Resolution)
 	{
-		for (int y = 0; y < Dimensions.Y; y += Resolution)
+		for (int y = 0; y < LandscapeDimensions.Y; y += Resolution)
 		{
 			FIntVector StartLocation = FIntVector(x, y, (int)SampleMaxHeight);
 
@@ -108,7 +120,7 @@ bool AQuantizer::SampleTerrainHeight(FIntVector StartLocation, FQuantizedSpace& 
 	OutResult.Height = Hit.Location.Z;
 
 	//Draw line check
-	DrawDebugLine(World, Start, FVector(Start.X, Start.Y, OutResult.Height), FColor::Green, true);
+	//DrawDebugLine(World, Start, FVector(Start.X, Start.Y, OutResult.Height), FColor::Green, true);
 
 	return true;
 }

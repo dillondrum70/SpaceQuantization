@@ -43,6 +43,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	class AQuantizer* Quantizer;
 
+	//Used to mark position and destination of path
+	AActor* SourceMarker;
+	AActor* DestinationMarker;
+
 protected:
 	/** True if the controlled character should navigate to the mouse cursor. */
 	uint32 bMoveToMouseCursor : 1;

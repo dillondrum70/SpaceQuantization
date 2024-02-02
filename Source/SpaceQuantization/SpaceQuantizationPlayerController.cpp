@@ -48,10 +48,11 @@ void ASpaceQuantizationPlayerController::BeginPlay()
 		UE_LOG(LogTemp, Error, TEXT("Quantizer is null in ASpaceQuantizationPlayerController::BeginPlay"));
 		return;
 	}
-	else
-	{
-		UE_LOG(LogTemp, Display, TEXT("Found Quantizer with name %s"), *Quantizer->GetName());
-	}
+
+	UE_LOG(LogTemp, Display, TEXT("Found Quantizer with name %s"), *Quantizer->GetName());
+
+	SourceMarker = Quantizer->SourceMarker;
+	DestinationMarker = Quantizer->DestinationMarker;
 }
 
 void ASpaceQuantizationPlayerController::SetupInputComponent()
@@ -103,7 +104,13 @@ void ASpaceQuantizationPlayerController::OnSetDestinationTriggered()
 		return;
 	}
 
-	DrawDebugSphere(World, CachedDestination, 50, 12, FColor::Red, true);
+	//DrawDebugSphere(World, CachedDestination, 50, 12, FColor::Red, true);
+
+	//Move destination visual
+	if (DestinationMarker)
+	{
+		DestinationMarker->SetActorLocation(CachedDestination);
+	}
 }
 
 void ASpaceQuantizationPlayerController::OnSetDestinationReleased()
@@ -132,7 +139,13 @@ void ASpaceQuantizationPlayerController::OnSetSourceTriggered()
 		return;
 	}
 
-	DrawDebugSphere(World, CachedSource, 50, 12, FColor::Green, true);
+	//DrawDebugSphere(World, CachedSource, 50, 12, FColor::Green, true);
+
+	//Move source visual
+	if (SourceMarker)
+	{
+		SourceMarker->SetActorLocation(CachedSource);
+	}
 }
 
 

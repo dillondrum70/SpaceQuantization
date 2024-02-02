@@ -7,6 +7,17 @@
 #include "Quantizer.generated.h"
 
 USTRUCT(BlueprintType)
+struct FGridMask
+{
+	GENERATED_BODY()
+
+	FGridMask();
+
+	UPROPERTY(EditAnywhere)
+	TArray<FIntVector2> MaskPoints;
+};
+
+USTRUCT(BlueprintType)
 struct FQuantizedSpace
 {
 	GENERATED_BODY()
@@ -29,7 +40,11 @@ public:
 	UPROPERTY(EditAnywhere)
 	int Resolution = 1000;
 
-	FIntVector2 Dimensions;
+	//Dimensions of the discretized grid
+	FIntVector2 GridDimensions;
+
+	//Dimensions of the array in Unreal units
+	FVector2D LandscapeDimensions;
 
 	UPROPERTY(EditAnywhere)
 	AActor* LandscapeActor;
@@ -39,6 +54,14 @@ public:
 
 	UPROPERTY(EditAnywhere)
 	float SampleMaxDepth = 5000;	//Max depth of terrain below 0
+
+	UPROPERTY(EditAnywhere)
+	FGridMask SampleMask;
+
+	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
+	AActor* SourceMarker;
+	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
+	AActor* DestinationMarker;
 
 	// Sets default values for this actor's properties
 	AQuantizer();

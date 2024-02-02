@@ -108,7 +108,7 @@ bool AQuantizer::SampleTerrainHeight(FIntVector StartLocation, FQuantizedSpace& 
 	OutResult.Height = Hit.Location.Z;
 
 	//Draw line check
-	//DrawDebugLine(World, Start, FVector(Start.X, Start.Y, OutResult.Height), FColor::Green, true);
+	DrawDebugLine(World, Start, FVector(Start.X, Start.Y, OutResult.Height), FColor::Green, true);
 
 	return true;
 }

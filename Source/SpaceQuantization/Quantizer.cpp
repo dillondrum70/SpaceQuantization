@@ -156,6 +156,8 @@ bool AQuantizer::ComputePath(FVector Source, FVector Destination)
 	FQuantizedSpace QuantizedSource = Quantize(Source);
 	FQuantizedSpace QuantizedDestination = Quantize(Destination);
 
+
+
 	///// TEST
 	//Draw line between source and destination
 	UE_LOG(LogTemp, Display, TEXT("Cost: %f"), CostFunction(FIntVector2(QuantizedSource.Location.X, QuantizedSource.Location.Y), FIntVector2(QuantizedDestination.Location.X, QuantizedDestination.Location.Y)));

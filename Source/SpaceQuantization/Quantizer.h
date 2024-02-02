@@ -48,6 +48,10 @@ public:
 	UPROPERTY(EditAnywhere)
 	float AngleCostWeight = 1;
 
+	//Max angle of path
+	UPROPERTY(EditAnywhere)
+	float MaxAngleThreshold = 15.f;
+
 	//Dimensions of the discretized grid
 	FIntVector2 GridDimensions;
 
@@ -70,6 +74,10 @@ public:
 	AActor* SourceMarker;
 	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
 	AActor* DestinationMarker;
+
+	//Store these at the beginning of the algorithm for use later
+	FQuantizedSpace QuantizedSource;
+	FQuantizedSpace QuantizedDestination;
 
 	// Sets default values for this actor's properties
 	AQuantizer();
@@ -113,6 +121,13 @@ public:
 	/// <param name="Next"></param>
 	/// <returns></returns>
 	float CostFunction(FIntVector2 Current, FIntVector2 Next) const;
+
+	/// <summary>
+	/// Get the distance between current cell and goal, uses euclidean distance (as the crow flies)
+	/// </summary>
+	/// <param name="Current"></param>
+	/// <returns></returns>
+	float GoalFunction(FIntVector2 Current) const;
 
 	/// <summary>
 	/// Whether or not the passed grid point is in range

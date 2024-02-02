@@ -153,8 +153,8 @@ FQuantizedSpace AQuantizer::Quantize(FVector Location)
 bool AQuantizer::ComputePath(FVector Source, FVector Destination)
 {
 	//Quantize positions in terms of grid points
-	FQuantizedSpace QuantizedSource = Quantize(Source);
-	FQuantizedSpace QuantizedDestination = Quantize(Destination);
+	QuantizedSource = Quantize(Source);
+	QuantizedDestination = Quantize(Destination);
 
 
 
@@ -192,9 +192,22 @@ float AQuantizer::CostFunction(FIntVector2 Current, FIntVector2 Next) const
 
 	float angle = FMath::RadiansToDegrees(FMath::Acos(Vec.Dot(ProjectedVec) / (Vec.Length() * ProjectedVec.Length())));
 
+	if (angle > MaxAngleThreshold)
+	{
+		return INFINITY;
+	}
+
 	UE_LOG(LogTemp, Display, TEXT("Angle: %f"), angle);
 
-	return (angle * AngleCostWeight) + ((length / Resolution) * LengthCostWeight);
+	//return (angle * AngleCostWeight) + ((length / Resolution) * LengthCostWeight);
+	return ((length / Resolution) * LengthCostWeight);
+}
+
+
+float AQuantizer::GoalFunction(FIntVector2 Current) const
+{
+	return (FVector(QuantizedDestination.Location.X, QuantizedDestination.Location.Y, QuantizedDestination.Height) -
+		FVector(Current.X, Current.Y, CachedHeightmap[Current].Height)).Length();
 }
 
 
@@ -208,7 +221,7 @@ bool AQuantizer::IsGridPointValid(FIntVector2 GridPoint) const
 FQuantizedSpace AQuantizer::FindLowestCost(const FGridMask& GridMask, FIntVector2 CurrentLocation)
 {
 	FQuantizedSpace Result;
-	float LowestCost = 9999999.0f;
+	float LowestCost = INFINITY;
 
 	//Sample all grid mask points
 	for (int i = 0; i < GridMask.MaskPoints.Num(); i++)

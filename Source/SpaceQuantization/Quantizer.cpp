@@ -152,9 +152,90 @@ FQuantizedSpace AQuantizer::Quantize(FVector Location)
 
 bool AQuantizer::ComputePath(FVector Source, FVector Destination)
 {
-	FQuantizedSpace q = Quantize(Source);
-	DrawDebugSphere(GetWorld(), FVector(q.Location.X, q.Location.Y, q.Height), 50, 12, FColor::Cyan, true);
-	q = Quantize(Destination);
-	DrawDebugSphere(GetWorld(), FVector(q.Location.X, q.Location.Y, q.Height), 50, 12, FColor::Emerald, true);
+	//Quantize positions in terms of grid points
+	FQuantizedSpace QuantizedSource = Quantize(Source);
+	FQuantizedSpace QuantizedDestination = Quantize(Destination);
+
+	///// TEST
+	//Draw line between source and destination
+	UE_LOG(LogTemp, Display, TEXT("Cost: %f"), CostFunction(FIntVector2(QuantizedSource.Location.X, QuantizedSource.Location.Y), FIntVector2(QuantizedDestination.Location.X, QuantizedDestination.Location.Y)));
+	DrawDebugLine(GetWorld(), FVector(QuantizedSource.Location.X, QuantizedSource.Location.Y, QuantizedSource.Height),
+		FVector(QuantizedDestination.Location.X, QuantizedDestination.Location.Y, QuantizedDestination.Height), FColor::Cyan, true);
+
+	//Get lowest cost and draw samples
+	FQuantizedSpace New = FindLowestCost(SampleMask, QuantizedSource.Location);
+	DrawDebugSphere(GetWorld(), FVector(New.Location.X, New.Location.Y, New.Height), 25, 12, FColor::Magenta, true);
+
 	return false;
+}
+
+
+float AQuantizer::CostFunction(FIntVector2 Current, FIntVector2 Next) const
+{
+	//Distance calculations using 2D space
+	FVector Current3 = FVector(Current.X, Current.Y, 0);
+	FVector Next3 = FVector(Next.X, Next.Y, 0);
+	
+	FVector Vec = Next3 - Current3;
+	float length = Vec.Length();
+
+	//Add third dimension
+	Current3.Z = CachedHeightmap[Current].Height;
+	Next3.Z = CachedHeightmap[Next].Height;
+
+	Vec = Next3 - Current3;
+
+	//Angle calculations
+	FVector ProjectedVec = (FVector::VectorPlaneProject(Vec, FVector::UpVector)).GetSafeNormal();
+
+	float angle = FMath::RadiansToDegrees(FMath::Acos(Vec.Dot(ProjectedVec) / (Vec.Length() * ProjectedVec.Length())));
+
+	UE_LOG(LogTemp, Display, TEXT("Angle: %f"), angle);
+
+	return (angle * AngleCostWeight) + ((length / Resolution) * LengthCostWeight);
+}
+
+
+bool AQuantizer::IsGridPointValid(FIntVector2 GridPoint) const
+{
+	//Check grid point is not out of range or less than 0
+	return CachedHeightmap.Contains(GridPoint);
+}
+
+
+FQuantizedSpace AQuantizer::FindLowestCost(const FGridMask& GridMask, FIntVector2 CurrentLocation)
+{
+	FQuantizedSpace Result;
+	float LowestCost = 9999999.0f;
+
+	//Sample all grid mask points
+	for (int i = 0; i < GridMask.MaskPoints.Num(); i++)
+	{
+		//Calcualte next point
+		FIntVector2 NextPoint = CurrentLocation;
+		NextPoint.X += GridMask.MaskPoints[i].X * Resolution;
+		NextPoint.Y += GridMask.MaskPoints[i].Y * Resolution;
+
+		//Ensure grid point is valid
+		if (!IsGridPointValid(NextPoint))
+		{
+			UE_LOG(LogTemp, Display, TEXT("Grid point not valid at (%i, %i)"), NextPoint.X, NextPoint.Y);
+			continue;
+		}
+
+		//Get cost
+		float CurrentCost = CostFunction(CurrentLocation, NextPoint);
+
+		if (CurrentCost < LowestCost)
+		{
+			LowestCost = CurrentCost;
+			Result = CachedHeightmap[NextPoint];
+		}
+
+		//Draw sample line between current and sample point
+		DrawDebugLine(GetWorld(), FVector(CurrentLocation.X, CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height),
+			FVector(NextPoint.X, NextPoint.Y, CachedHeightmap[NextPoint].Height), FColor::White, true);
+	}
+
+	return Result;
 }

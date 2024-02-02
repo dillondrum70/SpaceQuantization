@@ -40,6 +40,14 @@ public:
 	UPROPERTY(EditAnywhere)
 	int Resolution = 1000;
 
+	/*
+	*	Weights of different types of costs in A* calculation
+	*/
+	UPROPERTY(EditAnywhere)
+	float LengthCostWeight = 1;
+	UPROPERTY(EditAnywhere)
+	float AngleCostWeight = 1;
+
 	//Dimensions of the discretized grid
 	FIntVector2 GridDimensions;
 
@@ -97,5 +105,27 @@ public:
 	/// <returns>Success</returns>
 	UFUNCTION(BlueprintCallable)
 	bool ComputePath(FVector Source, FVector Destination);
+
+	/// <summary>
+	/// Get the cost of moving to a given cell
+	/// </summary>
+	/// <param name="Current"></param>
+	/// <param name="Next"></param>
+	/// <returns></returns>
+	float CostFunction(FIntVector2 Current, FIntVector2 Next) const;
+
+	/// <summary>
+	/// Whether or not the passed grid point is in range
+	/// </summary>
+	/// <param name="GridPoint"></param>
+	/// <returns></returns>
+	bool IsGridPointValid(FIntVector2 GridPoint) const;
 	
+	/// <summary>
+	/// Return the lowest cost next grid point between all the adjacent points in the GridMask
+	/// </summary>
+	/// <param name="GridMask"></param>
+	/// <param name="CurrentLocation"></param>
+	/// <returns></returns>
+	FQuantizedSpace FindLowestCost(const FGridMask& GridMask, FIntVector2 CurrentLocation);
 };

@@ -6,6 +6,14 @@
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 
+#include <queue>
+#include <vector>
+
+FAStarNode::FAStarNode()
+{
+	Cost = 0;
+}
+
 FGridMask::FGridMask()
 {
 
@@ -156,7 +164,11 @@ bool AQuantizer::ComputePath(FVector Source, FVector Destination)
 	QuantizedSource = Quantize(Source);
 	QuantizedDestination = Quantize(Destination);
 
+	//Unexplored spaces
+	std::priority_queue<FAStarNode, std::vector<FAStarNode>, FNodeCompare> Frontier;
 
+	//Keys lead to the parent node as a value of the key
+	//TMap<FAStarNode, FAStarNode> Parents;
 
 	///// TEST
 	//Draw line between source and destination

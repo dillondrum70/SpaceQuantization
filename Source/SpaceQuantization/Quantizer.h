@@ -6,6 +6,24 @@
 #include "GameFramework/Actor.h"
 #include "Quantizer.generated.h"
 
+USTRUCT()
+struct FAStarNode
+{
+	GENERATED_BODY()
+
+	FAStarNode();
+
+	float Cost;
+};
+
+USTRUCT()
+struct FNodeCompare
+{
+	GENERATED_BODY()
+
+	bool operator()(const FAStarNode& l, const FAStarNode& r) const { return l.Cost > r.Cost; }
+};
+
 USTRUCT(BlueprintType)
 struct FGridMask
 {

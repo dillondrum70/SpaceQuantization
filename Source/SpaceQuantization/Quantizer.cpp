@@ -6,14 +6,6 @@
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 
-#include <queue>
-#include <vector>
-
-FAStarNode::FAStarNode()
-{
-	Cost = 0;
-}
-
 FGridMask::FGridMask()
 {
 
@@ -158,44 +150,90 @@ FQuantizedSpace AQuantizer::Quantize(FVector Location)
 }
 
 
+FAStarNode AQuantizer::PopLowestCostNode()
+{
+	FAStarNode element = Frontier[0];
+
+	for (int i = 1; i < Frontier.Num(); i++)
+	{
+		if (Frontier[i].Cost < element.Cost)
+		{
+			element = Frontier[i];
+		}
+	}
+
+	Frontier.Remove(element);
+
+	return element;
+}
+
+
 bool AQuantizer::ComputePath(FVector Source, FVector Destination)
 {
 	//Quantize positions in terms of grid points
 	QuantizedSource = Quantize(Source);
 	QuantizedDestination = Quantize(Destination);
 
-	//Unexplored spaces
-	std::priority_queue<FAStarNode, std::vector<FAStarNode>, FNodeCompare> Frontier;
+	FAStarNode StartNode(0, 0, QuantizedSource.Location);	//Starting node is on the source position, 0 cost
 
-	//Keys lead to the parent node as a value of the key
-	//TMap<FAStarNode, FAStarNode> Parents;
+	//Unexplored spaces, clear frontier
+	Frontier.Empty();
+
+	Frontier.Add(StartNode);	//Initialize frontier with starting node
+
+	//Keys lead to the parent node as a value of the key, clear Parents
+	//Parents.Empty();
+	//Nodes that have already been visited, clear Closed
+	Closed.Empty();
+
+	//Loop until goal is found
+	while (!Frontier.IsEmpty())
+	{
+		FAStarNode CurrentNode = PopLowestCostNode();
+
+		GenerateSuccessors(SampleMask, CurrentNode, QuantizedDestination);
+
+		Closed.Add(CurrentNode);
+	}
 
 	///// TEST
 	//Draw line between source and destination
-	UE_LOG(LogTemp, Display, TEXT("Cost: %f"), CostFunction(FIntVector2(QuantizedSource.Location.X, QuantizedSource.Location.Y), FIntVector2(QuantizedDestination.Location.X, QuantizedDestination.Location.Y)));
-	DrawDebugLine(GetWorld(), FVector(QuantizedSource.Location.X, QuantizedSource.Location.Y, QuantizedSource.Height),
-		FVector(QuantizedDestination.Location.X, QuantizedDestination.Location.Y, QuantizedDestination.Height), FColor::Cyan, true);
+	//UE_LOG(LogTemp, Display, TEXT("Cost: %f"), CostFunction(FIntVector2(QuantizedSource.Location.X, QuantizedSource.Location.Y), FIntVector2(QuantizedDestination.Location.X, QuantizedDestination.Location.Y)));
+	//DrawDebugLine(GetWorld(), FVector(QuantizedSource.Location.X, QuantizedSource.Location.Y, QuantizedSource.Height),
+	//	FVector(QuantizedDestination.Location.X, QuantizedDestination.Location.Y, QuantizedDestination.Height), FColor::Cyan, true);
 
-	//Get lowest cost and draw samples
-	FQuantizedSpace New = FindLowestCost(SampleMask, QuantizedSource.Location);
-	DrawDebugSphere(GetWorld(), FVector(New.Location.X, New.Location.Y, New.Height), 25, 12, FColor::Magenta, true);
+	////Get lowest cost and draw samples
+	//FQuantizedSpace New = FindLowestCost(SampleMask, QuantizedSource.Location);
+	//DrawDebugSphere(GetWorld(), FVector(New.Location.X, New.Location.Y, New.Height), 25, 12, FColor::Magenta, true);
 
 	return false;
 }
 
 
-float AQuantizer::CostFunction(FIntVector2 Current, FIntVector2 Next) const
+float AQuantizer::CostFunction(const FAStarNode& Current, FAStarNode& Next) const
 {
 	//Distance calculations using 2D space
-	FVector Current3 = FVector(Current.X, Current.Y, 0);
-	FVector Next3 = FVector(Next.X, Next.Y, 0);
+	FVector Current3 = FVector(Current.Location.X, Current.Location.Y, 0);
+	FVector Next3 = FVector(Next.Location.X, Next.Location.Y, 0);
+
+	//Can probably be cached somewhere
+	FVector Goal = FVector(QuantizedDestination.Location.X, QuantizedDestination.Location.Y, 0);
 	
-	FVector Vec = Next3 - Current3;
-	float length = Vec.Length();
+	FVector Vec = Next3 - Current3;				//Vector between current point and neighbor
+	float CurrentNextDistance = Vec.Length();	//Distance between current point and neibor
+
+	//Distance (in terms of grid units) between next and goal (h)
+	float DistanceToGoal = ((Goal - Next3).Length() / Resolution) * LengthCostWeight;
+
+	//Calculate new distance from start (g)
+	Next.DistanceFromStart = Current.DistanceFromStart + ((CurrentNextDistance / Resolution) * LengthCostWeight);
+
+	//Calculate new cost (g + h)
+	Next.Cost = Next.DistanceFromStart + DistanceToGoal;
 
 	//Add third dimension
-	Current3.Z = CachedHeightmap[Current].Height;
-	Next3.Z = CachedHeightmap[Next].Height;
+	Current3.Z = CachedHeightmap[Current.Location].Height;
+	Next3.Z = CachedHeightmap[Next.Location].Height;
 
 	Vec = Next3 - Current3;
 
@@ -204,15 +242,17 @@ float AQuantizer::CostFunction(FIntVector2 Current, FIntVector2 Next) const
 
 	float angle = FMath::RadiansToDegrees(FMath::Acos(Vec.Dot(ProjectedVec) / (Vec.Length() * ProjectedVec.Length())));
 
+	//Do not accept any neighbors above the angle threshold
 	if (angle > MaxAngleThreshold)
 	{
+		Next.Cost = INFINITY;
 		return INFINITY;
 	}
 
 	UE_LOG(LogTemp, Display, TEXT("Angle: %f"), angle);
 
 	//return (angle * AngleCostWeight) + ((length / Resolution) * LengthCostWeight);
-	return ((length / Resolution) * LengthCostWeight);
+	return Next.Cost;
 }
 
 
@@ -230,39 +270,62 @@ bool AQuantizer::IsGridPointValid(FIntVector2 GridPoint) const
 }
 
 
-FQuantizedSpace AQuantizer::FindLowestCost(const FGridMask& GridMask, FIntVector2 CurrentLocation)
+void AQuantizer::GenerateSuccessors(const FGridMask& GridMask, const FAStarNode& Current, const FQuantizedSpace& Goal)
 {
-	FQuantizedSpace Result;
-	float LowestCost = INFINITY;
+	//float LowestCost = INFINITY;
 
 	//Sample all grid mask points
 	for (int i = 0; i < GridMask.MaskPoints.Num(); i++)
 	{
+		FAStarNode NextNode;
+
 		//Calcualte next point
-		FIntVector2 NextPoint = CurrentLocation;
-		NextPoint.X += GridMask.MaskPoints[i].X * Resolution;
-		NextPoint.Y += GridMask.MaskPoints[i].Y * Resolution;
+		NextNode.Location = Current.Location;
+		NextNode.Location.X += GridMask.MaskPoints[i].X * Resolution;
+		NextNode.Location.Y += GridMask.MaskPoints[i].Y * Resolution;
 
 		//Ensure grid point is valid
-		if (!IsGridPointValid(NextPoint))
+		if (!IsGridPointValid(NextNode.Location))
 		{
-			UE_LOG(LogTemp, Display, TEXT("Grid point not valid at (%i, %i)"), NextPoint.X, NextPoint.Y);
+			UE_LOG(LogTemp, Display, TEXT("Grid point not valid at (%i, %i)"), NextNode.Location.X, NextNode.Location.Y);
 			continue;
+		}
+		
+		//Check if reached goal
+		if (NextNode.Location == Goal.Location)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Algorithm finished, goal reached with A*"));
+
+			/////////////////// TODO - Implement traceback and finish algorithm
+
+			return;
 		}
 
 		//Get cost
-		float CurrentCost = CostFunction(CurrentLocation, NextPoint);
+		float CurrentCost = CostFunction(Current, NextNode);
 
-		if (CurrentCost < LowestCost)
+		//Find node in open list if it exists
+		int ExistingIndex = Frontier.Find(NextNode);
+
+		//Ignore this node if one exists already with a lower cost
+		if (ExistingIndex >= 0 && Frontier[ExistingIndex].Cost <= NextNode.Cost)
 		{
-			LowestCost = CurrentCost;
-			Result = CachedHeightmap[NextPoint];
+			continue;
 		}
 
-		//Draw sample line between current and sample point
-		DrawDebugLine(GetWorld(), FVector(CurrentLocation.X, CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height),
-			FVector(NextPoint.X, NextPoint.Y, CachedHeightmap[NextPoint].Height), FColor::White, true);
-	}
+		//Find node in open list if it exists
+		ExistingIndex = Closed.Find(NextNode);
 
-	return Result;
+		//Ignore this node if one exists already with a lower cost
+		if (ExistingIndex >= 0 && Closed[ExistingIndex].Cost <= NextNode.Cost)
+		{
+			continue;
+		}
+
+		Frontier.Add(NextNode);
+		
+		//Draw sample line between current and sample point
+		/*DrawDebugLine(GetWorld(), FVector(Current.Location.X, Current.Location.Y, CachedHeightmap[Current.Location].Height),
+			FVector(NextNode.Location.X, NextNode.Location.Y, CachedHeightmap[NextNode.Location].Height), FColor::White, true);*/
+	}
 }

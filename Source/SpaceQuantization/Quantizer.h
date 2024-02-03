@@ -11,17 +11,41 @@ struct FAStarNode
 {
 	GENERATED_BODY()
 
-	FAStarNode();
+	float Cost;	//Cost heuristic
+	float DistanceFromStart;	//Distance (euclidean) from start node
+	FIntVector2 Location;
 
-	float Cost;
-};
+	FAStarNode()
+		: Cost(0), DistanceFromStart(0), Location(0, 0)
+	{}
 
-USTRUCT()
-struct FNodeCompare
-{
-	GENERATED_BODY()
+	FAStarNode(float _Cost, float _DistanceFromStart, FIntVector2 _Location)
+	: Cost(_Cost), DistanceFromStart(_DistanceFromStart), Location(_Location)
+	{}
 
-	bool operator()(const FAStarNode& l, const FAStarNode& r) const { return l.Cost > r.Cost; }
+	FAStarNode(const FAStarNode& Other)
+		: Cost(Other.Cost), DistanceFromStart(Other.DistanceFromStart), Location(Other.Location)
+	{}
+
+	bool operator==(const FAStarNode& Other) const
+	{
+		return Equals(Other);
+	}
+
+	bool operator<(const FAStarNode& Other) const
+	{
+		return Cost < Other.Cost;
+	}
+
+	bool Equals(const FAStarNode& Other) const
+	{
+		return Location == Other.Location;
+	}
+
+	static bool CompareLess(const FAStarNode& l, const FAStarNode& r) 
+	{ 
+		return l.Cost > r.Cost; 
+	}
 };
 
 USTRUCT(BlueprintType)
@@ -53,6 +77,10 @@ class SPACEQUANTIZATION_API AQuantizer : public AActor
 	GENERATED_BODY()
 	
 public:	
+
+	TArray<FAStarNode> Frontier;
+	//TMap<FAStarNode, FAStarNode> Parents;
+	TArray<FAStarNode> Closed;
 
 	//How many units large each cell is
 	UPROPERTY(EditAnywhere)
@@ -123,6 +151,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	FQuantizedSpace Quantize(FVector Location);
 
+	FAStarNode PopLowestCostNode();
+
 	/// <summary>
 	/// Compute the path between source and destination vectors
 	/// </summary>
@@ -138,7 +168,7 @@ public:
 	/// <param name="Current"></param>
 	/// <param name="Next"></param>
 	/// <returns></returns>
-	float CostFunction(FIntVector2 Current, FIntVector2 Next) const;
+	float CostFunction(const FAStarNode& Current, FAStarNode& Next) const;
 
 	/// <summary>
 	/// Get the distance between current cell and goal, uses euclidean distance (as the crow flies)
@@ -155,10 +185,9 @@ public:
 	bool IsGridPointValid(FIntVector2 GridPoint) const;
 	
 	/// <summary>
-	/// Return the lowest cost next grid point between all the adjacent points in the GridMask
+	/// Use grid mask to generate A* successors
 	/// </summary>
 	/// <param name="GridMask"></param>
-	/// <param name="CurrentLocation"></param>
-	/// <returns></returns>
-	FQuantizedSpace FindLowestCost(const FGridMask& GridMask, FIntVector2 CurrentLocation);
+	/// <param name="Current"></param>
+	void GenerateSuccessors(const FGridMask& GridMask, const FAStarNode& Current, const FQuantizedSpace& Goal);
 };

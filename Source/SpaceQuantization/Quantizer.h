@@ -15,16 +15,18 @@ struct FAStarNode
 	float DistanceFromStart;	//Distance (euclidean) from start node
 	FIntVector2 Location;
 
+	FIntVector2 Parent;
+
 	FAStarNode()
 		: Cost(0), DistanceFromStart(0), Location(0, 0)
 	{}
 
-	FAStarNode(float _Cost, float _DistanceFromStart, FIntVector2 _Location)
-	: Cost(_Cost), DistanceFromStart(_DistanceFromStart), Location(_Location)
+	FAStarNode(float _Cost, float _DistanceFromStart, FIntVector2 _Location, FIntVector2 _Parent)
+	: Cost(_Cost), DistanceFromStart(_DistanceFromStart), Location(_Location), Parent(_Parent)
 	{}
 
 	FAStarNode(const FAStarNode& Other)
-		: Cost(Other.Cost), DistanceFromStart(Other.DistanceFromStart), Location(Other.Location)
+		: Cost(Other.Cost), DistanceFromStart(Other.DistanceFromStart), Location(Other.Location), Parent(Other.Parent)
 	{}
 
 	bool operator==(const FAStarNode& Other) const
@@ -47,6 +49,12 @@ struct FAStarNode
 		return l.Cost > r.Cost; 
 	}
 };
+
+FORCEINLINE uint32 GetTypeHash(const FAStarNode& Thing)
+{
+	uint32 Hash = FCrc::MemCrc32(&Thing, sizeof(FAStarNode));
+	return Hash;
+}
 
 USTRUCT(BlueprintType)
 struct FGridMask
@@ -78,9 +86,13 @@ class SPACEQUANTIZATION_API AQuantizer : public AActor
 	
 public:	
 
+	//A* Data Structures
 	TArray<FAStarNode> Frontier;
-	//TMap<FAStarNode, FAStarNode> Parents;
+	TMap<FIntVector2, FIntVector2> Parents;
 	TArray<FAStarNode> Closed;
+
+	FVector Source;
+	FVector Destination;
 
 	//How many units large each cell is
 	UPROPERTY(EditAnywhere)
@@ -190,4 +202,11 @@ public:
 	/// <param name="GridMask"></param>
 	/// <param name="Current"></param>
 	void GenerateSuccessors(const FGridMask& GridMask, const FAStarNode& Current, const FQuantizedSpace& Goal);
+
+	/// <summary>
+	/// Trace back path from the current node to the start
+	/// </summary>
+	/// <param name="LastNode"></param>
+	/// <returns></returns>
+	void TraceBackPath(const FAStarNode& LastNode, TArray<FVector>& Path);
 };

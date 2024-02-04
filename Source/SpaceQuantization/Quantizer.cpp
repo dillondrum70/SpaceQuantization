@@ -168,13 +168,16 @@ FAStarNode AQuantizer::PopLowestCostNode()
 }
 
 
-bool AQuantizer::ComputePath(FVector Source, FVector Destination)
+bool AQuantizer::ComputePath(FVector _Source, FVector _Destination)
 {
-	//Quantize positions in terms of grid points
-	QuantizedSource = Quantize(Source);
-	QuantizedDestination = Quantize(Destination);
+	Source = _Source;
+	Destination = _Destination;
 
-	FAStarNode StartNode(0, 0, QuantizedSource.Location);	//Starting node is on the source position, 0 cost
+	//Quantize positions in terms of grid points
+	QuantizedSource = Quantize(_Source);
+	QuantizedDestination = Quantize(_Destination);
+
+	FAStarNode StartNode(0, 0, QuantizedSource.Location, QuantizedSource.Location);	//Starting node is on the source position, 0 cost
 
 	//Unexplored spaces, clear frontier
 	Frontier.Empty();
@@ -182,9 +185,12 @@ bool AQuantizer::ComputePath(FVector Source, FVector Destination)
 	Frontier.Add(StartNode);	//Initialize frontier with starting node
 
 	//Keys lead to the parent node as a value of the key, clear Parents
-	//Parents.Empty();
+	Parents.Empty();
 	//Nodes that have already been visited, clear Closed
 	Closed.Empty();
+
+	//Parent of start node is itself
+	Parents.Add(StartNode.Location, StartNode.Location);
 
 	//Loop until goal is found
 	while (!Frontier.IsEmpty())
@@ -298,6 +304,21 @@ void AQuantizer::GenerateSuccessors(const FGridMask& GridMask, const FAStarNode&
 
 			/////////////////// TODO - Implement traceback and finish algorithm
 
+			TArray<FVector> Path;
+			Path.Add(Destination);
+			TraceBackPath(NextNode, Path);
+			Path.Add(Source);
+
+			Frontier.Empty();
+
+			UE_LOG(LogTemp, Display, TEXT("Source: (%f, %f, %f)"), Source.X, Source.Y, Source.Z);
+			/////// TEST - Print path
+			for (int c = Path.Num(); c >= 0; c--)
+			{
+				UE_LOG(LogTemp, Display, TEXT("Path Node: (%f, %f, %f)"), Path[c].X, Path[c].Y, Path[c].Z);
+			}
+			UE_LOG(LogTemp, Display, TEXT("Destination: (%f, %f, %f)"), Destination.X, Destination.Y, Destination.Z);
+
 			return;
 		}
 
@@ -308,7 +329,7 @@ void AQuantizer::GenerateSuccessors(const FGridMask& GridMask, const FAStarNode&
 		int ExistingIndex = Frontier.Find(NextNode);
 
 		//Ignore this node if one exists already with a lower cost
-		if (ExistingIndex >= 0 && Frontier[ExistingIndex].Cost <= NextNode.Cost)
+		if (ExistingIndex != INDEX_NONE && Frontier[ExistingIndex].Cost <= NextNode.Cost)
 		{
 			continue;
 		}
@@ -317,15 +338,51 @@ void AQuantizer::GenerateSuccessors(const FGridMask& GridMask, const FAStarNode&
 		ExistingIndex = Closed.Find(NextNode);
 
 		//Ignore this node if one exists already with a lower cost
-		if (ExistingIndex >= 0 && Closed[ExistingIndex].Cost <= NextNode.Cost)
+		if (ExistingIndex != INDEX_NONE && Closed[ExistingIndex].Cost <= NextNode.Cost)
 		{
 			continue;
 		}
 
+		//Set parent
+		NextNode.Parent = Current.Location;
+
+		//Overwrite if in map, add new entry otherwise
+		if (Parents.Contains(NextNode.Location))
+		{
+			Parents[NextNode.Location] = Current.Location;
+		}
+		else
+		{
+			Parents.Add(NextNode.Location, Current.Location);
+		}
+
+		//Add to frontier
 		Frontier.Add(NextNode);
 		
 		//Draw sample line between current and sample point
 		/*DrawDebugLine(GetWorld(), FVector(Current.Location.X, Current.Location.Y, CachedHeightmap[Current.Location].Height),
 			FVector(NextNode.Location.X, NextNode.Location.Y, CachedHeightmap[NextNode.Location].Height), FColor::White, true);*/
 	}
+}
+
+
+void AQuantizer::TraceBackPath(const FAStarNode& LastNode, TArray<FVector>& Path)
+{
+	Path.Add(FVector(LastNode.Location.X, LastNode.Location.Y, CachedHeightmap[LastNode.Location].Height));
+
+	FIntVector2 CurrentLocation = LastNode.Parent;
+	
+	//Trace back until you reach the start
+	while (CurrentLocation != Parents[CurrentLocation])
+	{
+		UE_LOG(LogTemp, Display, TEXT("Current Location: (%f, %f, %f)"), CurrentLocation.X, CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height);
+
+		//Add current location to array
+		Path.Add(FVector(CurrentLocation.X, CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height));
+
+		//Move to next node
+		CurrentLocation = Parents[CurrentLocation];
+	}
+
+	Path.Add(FVector(CurrentLocation.X, CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height));
 }

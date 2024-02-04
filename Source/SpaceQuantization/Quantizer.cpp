@@ -141,10 +141,14 @@ FQuantizedSpace AQuantizer::Quantize(FVector Location)
 
 	Location.X = ((int)Location.X / Resolution) * Resolution;	//Rounds location to the location of the grid point at the corner of this cell
 	Location.Y = ((int)Location.Y / Resolution) * Resolution;	//Rounds location to the location of the grid point at the corner of this cell
+	
+	UE_LOG(LogTemp, Display, TEXT("Coord: (%f, %f)"), Location.X, Location.Y);
 
 	FIntVector2 Coord = FIntVector2(Location.X, Location.Y);
 
 	Result = CachedHeightmap[Coord];
+
+	UE_LOG(LogTemp, Display, TEXT("Quantized Source: (%i, %i)"), Result.Location.X, Result.Location.Y);
 
 	return Result;
 }
@@ -176,6 +180,9 @@ bool AQuantizer::ComputePath(FVector _Source, FVector _Destination)
 	//Quantize positions in terms of grid points
 	QuantizedSource = Quantize(_Source);
 	QuantizedDestination = Quantize(_Destination);
+
+	UE_LOG(LogTemp, Display, TEXT("Source: (%f, %f)"), Source.X, Source.Y);
+	UE_LOG(LogTemp, Display, TEXT("Quantized Source: (%i, %i)"), QuantizedSource.Location.X, QuantizedSource.Location.Y);
 
 	FAStarNode StartNode(0, 0, QuantizedSource.Location, QuantizedSource.Location);	//Starting node is on the source position, 0 cost
 
@@ -312,12 +319,16 @@ void AQuantizer::GenerateSuccessors(const FGridMask& GridMask, const FAStarNode&
 			Frontier.Empty();
 
 			UE_LOG(LogTemp, Display, TEXT("Source: (%f, %f, %f)"), Source.X, Source.Y, Source.Z);
+			FVector Previous = Source;
 			/////// TEST - Print path
-			for (int c = Path.Num(); c >= 0; c--)
+			for (int c = Path.Num() - 1; c >= 0; c--)
 			{
 				UE_LOG(LogTemp, Display, TEXT("Path Node: (%f, %f, %f)"), Path[c].X, Path[c].Y, Path[c].Z);
+				DrawDebugLine(GetWorld(), Previous, Path[c], FColor::Magenta, true);
+				Previous = Path[c];
 			}
 			UE_LOG(LogTemp, Display, TEXT("Destination: (%f, %f, %f)"), Destination.X, Destination.Y, Destination.Z);
+			DrawDebugLine(GetWorld(), Previous, Destination, FColor::Magenta, true);
 
 			return;
 		}
@@ -368,21 +379,21 @@ void AQuantizer::GenerateSuccessors(const FGridMask& GridMask, const FAStarNode&
 
 void AQuantizer::TraceBackPath(const FAStarNode& LastNode, TArray<FVector>& Path)
 {
-	Path.Add(FVector(LastNode.Location.X, LastNode.Location.Y, CachedHeightmap[LastNode.Location].Height));
+	Path.Add(FVector((float)LastNode.Location.X, (float)LastNode.Location.Y, CachedHeightmap[LastNode.Location].Height));
 
 	FIntVector2 CurrentLocation = LastNode.Parent;
 	
 	//Trace back until you reach the start
 	while (CurrentLocation != Parents[CurrentLocation])
 	{
-		UE_LOG(LogTemp, Display, TEXT("Current Location: (%f, %f, %f)"), CurrentLocation.X, CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height);
+		UE_LOG(LogTemp, Display, TEXT("Current Location: (%f, %f, %f)"), (float)CurrentLocation.X, (float)CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height);
 
 		//Add current location to array
-		Path.Add(FVector(CurrentLocation.X, CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height));
+		Path.Add(FVector((float)CurrentLocation.X, (float)CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height));
 
 		//Move to next node
 		CurrentLocation = Parents[CurrentLocation];
 	}
 
-	Path.Add(FVector(CurrentLocation.X, CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height));
+	Path.Add(FVector((float)CurrentLocation.X, (float)CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height));
 }

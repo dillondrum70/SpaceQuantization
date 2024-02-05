@@ -6,7 +6,6 @@
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
 #include "Components/SplineComponent.h"
-#include "Components/SplineMeshComponent.h"
 #include "Engine/StaticMesh.h"
 
 FGridMask::FGridMask()
@@ -437,6 +436,8 @@ void AQuantizer::DrawPath()
 	{
 		//Create mesh, register with world and attach to spline component
 		USplineMeshComponent* SplineMeshComponent = NewObject<USplineMeshComponent>(this, USplineMeshComponent::StaticClass());
+
+		SplineMeshComponent->SetStaticMesh(SplineMesh);
 		SplineMeshComponent->SetMobility(EComponentMobility::Movable);
 		SplineMeshComponent->CreationMethod = EComponentCreationMethod::UserConstructionScript;
 		SplineMeshComponent->RegisterComponentWithWorld(GetWorld());
@@ -452,5 +453,7 @@ void AQuantizer::DrawPath()
 		SplineMeshComponent->SetStartAndEnd(StartPoint, StartTangent, EndPoint, EndTangent, true);
 
 		SplineMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+
+		SplineMeshComponent->SetForwardAxis(ForwardAxis);
 	}
 }

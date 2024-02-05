@@ -4,6 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+
+#include "Components/SplineMeshComponent.h"
+
 #include "Quantizer.generated.h"
 
 class USplineComponent;
@@ -164,8 +167,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline")
 	USplineComponent* SplineComp;
 
+	//Mesh used for path
 	UPROPERTY(EditAnywhere, Category = "Spline")
 	UStaticMesh* SplineMesh;
+
+	//Forward axis of mesh
+	UPROPERTY(EditDefaultsOnly, Category = "Spline")
+	TEnumAsByte<ESplineMeshAxis::Type> ForwardAxis;
 
 	// Sets default values for this actor's properties
 	AQuantizer();

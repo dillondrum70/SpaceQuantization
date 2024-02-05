@@ -5,6 +5,9 @@
 
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
+#include "Components/SplineComponent.h"
+#include "Components/SplineMeshComponent.h"
+#include "Engine/StaticMesh.h"
 
 FGridMask::FGridMask()
 {
@@ -24,6 +27,8 @@ AQuantizer::AQuantizer()
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
+	SplineComp = CreateDefaultSubobject<USplineComponent>(FName("Spline Component"));
+	SplineComp->SetupAttachment(RootComponent);
 }
 
 // Called when the game starts or when spawned
@@ -56,8 +61,8 @@ void AQuantizer::GenerateHeightmap()
 	GridDimensions.X = (int)LandscapeDimensions.X / Resolution;
 	GridDimensions.Y = (int)LandscapeDimensions.Y / Resolution;
 
-	UE_LOG(LogTemp, Display, TEXT("Landscape Dimensions: (%f, %f) \nGrid Dimensions: (%i, %i)"), 
-		LandscapeDimensions.X, LandscapeDimensions.Y, GridDimensions.X, GridDimensions.Y);
+	/*UE_LOG(LogTemp, Display, TEXT("Landscape Dimensions: (%f, %f) \nGrid Dimensions: (%i, %i)"), 
+		LandscapeDimensions.X, LandscapeDimensions.Y, GridDimensions.X, GridDimensions.Y);*/
 
 	//For every grid point
 	for (int x = 0; x < LandscapeDimensions.X; x += Resolution)
@@ -139,16 +144,18 @@ FQuantizedSpace AQuantizer::Quantize(FVector Location)
 {
 	FQuantizedSpace Result = FQuantizedSpace();
 
-	Location.X = ((int)Location.X / Resolution) * Resolution;	//Rounds location to the location of the grid point at the corner of this cell
-	Location.Y = ((int)Location.Y / Resolution) * Resolution;	//Rounds location to the location of the grid point at the corner of this cell
+	//Rounds location to the location of the grid point at the corner of this cell
+	Location.X = ((int)Location.X / Resolution) * Resolution;	
+	Location.Y = ((int)Location.Y / Resolution) * Resolution;
 	
-	UE_LOG(LogTemp, Display, TEXT("Coord: (%f, %f)"), Location.X, Location.Y);
+	//UE_LOG(LogTemp, Display, TEXT("Coord: (%f, %f)"), Location.X, Location.Y);
 
 	FIntVector2 Coord = FIntVector2(Location.X, Location.Y);
 
+	//Get and return result
 	Result = CachedHeightmap[Coord];
 
-	UE_LOG(LogTemp, Display, TEXT("Quantized Source: (%i, %i)"), Result.Location.X, Result.Location.Y);
+	//UE_LOG(LogTemp, Display, TEXT("Quantized Source: (%i, %i)"), Result.Location.X, Result.Location.Y);
 
 	return Result;
 }
@@ -158,6 +165,7 @@ FAStarNode AQuantizer::PopLowestCostNode()
 {
 	FAStarNode element = Frontier[0];
 
+	//Loop through Frontier and find lowest cost node
 	for (int i = 1; i < Frontier.Num(); i++)
 	{
 		if (Frontier[i].Cost < element.Cost)
@@ -166,6 +174,7 @@ FAStarNode AQuantizer::PopLowestCostNode()
 		}
 	}
 
+	//Remove lowest cost node from Frontier and return it
 	Frontier.Remove(element);
 
 	return element;
@@ -174,6 +183,7 @@ FAStarNode AQuantizer::PopLowestCostNode()
 
 bool AQuantizer::ComputePath(FVector _Source, FVector _Destination)
 {
+	//Cache passed values
 	Source = _Source;
 	Destination = _Destination;
 
@@ -181,8 +191,11 @@ bool AQuantizer::ComputePath(FVector _Source, FVector _Destination)
 	QuantizedSource = Quantize(_Source);
 	QuantizedDestination = Quantize(_Destination);
 
-	UE_LOG(LogTemp, Display, TEXT("Source: (%f, %f)"), Source.X, Source.Y);
-	UE_LOG(LogTemp, Display, TEXT("Quantized Source: (%i, %i)"), QuantizedSource.Location.X, QuantizedSource.Location.Y);
+	//UE_LOG(LogTemp, Display, TEXT("Source: (%f, %f)"), Source.X, Source.Y);
+	//UE_LOG(LogTemp, Display, TEXT("Quantized Source: (%i, %i)"), QuantizedSource.Location.X, QuantizedSource.Location.Y);
+
+	//Delete previous visualization
+	SplineComp->ClearSplinePoints();
 
 	FAStarNode StartNode(0, 0, QuantizedSource.Location, QuantizedSource.Location);	//Starting node is on the source position, 0 cost
 
@@ -209,17 +222,9 @@ bool AQuantizer::ComputePath(FVector _Source, FVector _Destination)
 		Closed.Add(CurrentNode);
 	}
 
-	///// TEST
-	//Draw line between source and destination
-	//UE_LOG(LogTemp, Display, TEXT("Cost: %f"), CostFunction(FIntVector2(QuantizedSource.Location.X, QuantizedSource.Location.Y), FIntVector2(QuantizedDestination.Location.X, QuantizedDestination.Location.Y)));
-	//DrawDebugLine(GetWorld(), FVector(QuantizedSource.Location.X, QuantizedSource.Location.Y, QuantizedSource.Height),
-	//	FVector(QuantizedDestination.Location.X, QuantizedDestination.Location.Y, QuantizedDestination.Height), FColor::Cyan, true);
+	DrawPath();
 
-	////Get lowest cost and draw samples
-	//FQuantizedSpace New = FindLowestCost(SampleMask, QuantizedSource.Location);
-	//DrawDebugSphere(GetWorld(), FVector(New.Location.X, New.Location.Y, New.Height), 25, 12, FColor::Magenta, true);
-
-	return false;
+	return true;
 }
 
 
@@ -262,7 +267,7 @@ float AQuantizer::CostFunction(const FAStarNode& Current, FAStarNode& Next) cons
 		return INFINITY;
 	}
 
-	UE_LOG(LogTemp, Display, TEXT("Angle: %f"), angle);
+	//UE_LOG(LogTemp, Display, TEXT("Angle: %f"), angle);
 
 	//return (angle * AngleCostWeight) + ((length / Resolution) * LengthCostWeight);
 	return Next.Cost;
@@ -311,24 +316,13 @@ void AQuantizer::GenerateSuccessors(const FGridMask& GridMask, const FAStarNode&
 
 			/////////////////// TODO - Implement traceback and finish algorithm
 
-			TArray<FVector> Path;
+			Path.Empty();
 			Path.Add(Destination);
 			TraceBackPath(NextNode, Path);
 			Path.Add(Source);
 
+			//Finish A*
 			Frontier.Empty();
-
-			UE_LOG(LogTemp, Display, TEXT("Source: (%f, %f, %f)"), Source.X, Source.Y, Source.Z);
-			FVector Previous = Source;
-			/////// TEST - Print path
-			for (int c = Path.Num() - 1; c >= 0; c--)
-			{
-				UE_LOG(LogTemp, Display, TEXT("Path Node: (%f, %f, %f)"), Path[c].X, Path[c].Y, Path[c].Z);
-				DrawDebugLine(GetWorld(), Previous, Path[c], FColor::Magenta, true);
-				Previous = Path[c];
-			}
-			UE_LOG(LogTemp, Display, TEXT("Destination: (%f, %f, %f)"), Destination.X, Destination.Y, Destination.Z);
-			DrawDebugLine(GetWorld(), Previous, Destination, FColor::Magenta, true);
 
 			return;
 		}
@@ -377,23 +371,86 @@ void AQuantizer::GenerateSuccessors(const FGridMask& GridMask, const FAStarNode&
 }
 
 
-void AQuantizer::TraceBackPath(const FAStarNode& LastNode, TArray<FVector>& Path)
+void AQuantizer::TraceBackPath(const FAStarNode& LastNode, TArray<FVector>& PathTrace)
 {
-	Path.Add(FVector((float)LastNode.Location.X, (float)LastNode.Location.Y, CachedHeightmap[LastNode.Location].Height));
+	PathTrace.Add(FVector((float)LastNode.Location.X, (float)LastNode.Location.Y, CachedHeightmap[LastNode.Location].Height));
 
 	FIntVector2 CurrentLocation = LastNode.Parent;
 	
 	//Trace back until you reach the start
 	while (CurrentLocation != Parents[CurrentLocation])
 	{
-		UE_LOG(LogTemp, Display, TEXT("Current Location: (%f, %f, %f)"), (float)CurrentLocation.X, (float)CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height);
+		//UE_LOG(LogTemp, Display, TEXT("Current Location: (%f, %f, %f)"), (float)CurrentLocation.X, (float)CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height);
 
 		//Add current location to array
-		Path.Add(FVector((float)CurrentLocation.X, (float)CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height));
+		PathTrace.Add(FVector((float)CurrentLocation.X, (float)CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height));
 
 		//Move to next node
 		CurrentLocation = Parents[CurrentLocation];
 	}
 
-	Path.Add(FVector((float)CurrentLocation.X, (float)CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height));
+	PathTrace.Add(FVector((float)CurrentLocation.X, (float)CurrentLocation.Y, CachedHeightmap[CurrentLocation].Height));
+}
+
+
+void AQuantizer::DrawPath()
+{
+	if (!SplineComp)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Spline Component is not valid in AQuantizer::GenerateSuccessors"));
+		return;
+	}
+
+	//UE_LOG(LogTemp, Display, TEXT("Source: (%f, %f, %f)"), Source.X, Source.Y, Source.Z);
+	FSplinePoint NewPoint;
+	NewPoint.Position = Source;
+	NewPoint.InputKey = 0;
+	SplineComp->AddPoint(NewPoint);
+
+	//FVector Previous = Source;
+
+	//Print path
+	for (int c = Path.Num() - 1; c >= 0; c--)
+	{
+		//UE_LOG(LogTemp, Display, TEXT("Path Node: (%f, %f, %f)"), Path[c].X, Path[c].Y, Path[c].Z);
+		//DrawDebugLine(GetWorld(), Previous, Path[c], FColor::Magenta, true);
+		NewPoint.Position = Path[c];
+		NewPoint.InputKey = Path.Num() - c;
+		SplineComp->AddPoint(NewPoint);
+		//Previous = Path[c];
+	}
+	//UE_LOG(LogTemp, Display, TEXT("Destination: (%f, %f, %f)"), Destination.X, Destination.Y, Destination.Z);
+	//DrawDebugLine(GetWorld(), Previous, Destination, FColor::Magenta, true);
+	NewPoint.Position = Destination;
+
+	NewPoint.InputKey = Path.Num() + 1;
+	SplineComp->AddPoint(NewPoint);
+
+	if (!SplineMesh)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Spline Mesh is null in AQuantizer::DrawPath"));
+		return;
+	}
+
+	// Source: https://www.youtube.com/watch?v=iD3l44uMd58
+	for (int SplineIndex = 0; SplineIndex < SplineComp->GetNumberOfSplinePoints() - 1; SplineIndex++)
+	{
+		//Create mesh, register with world and attach to spline component
+		USplineMeshComponent* SplineMeshComponent = NewObject<USplineMeshComponent>(this, USplineMeshComponent::StaticClass());
+		SplineMeshComponent->SetMobility(EComponentMobility::Movable);
+		SplineMeshComponent->CreationMethod = EComponentCreationMethod::UserConstructionScript;
+		SplineMeshComponent->RegisterComponentWithWorld(GetWorld());
+		SplineMeshComponent->AttachToComponent(SplineComp, FAttachmentTransformRules::KeepRelativeTransform);
+
+		//Get start and end points
+		const FVector StartPoint = SplineComp->GetLocationAtSplinePoint(SplineIndex, ESplineCoordinateSpace::Local);
+		const FVector StartTangent = SplineComp->GetTangentAtSplinePoint(SplineIndex, ESplineCoordinateSpace::Local);
+		const FVector EndPoint = SplineComp->GetLocationAtSplinePoint(SplineIndex + 1, ESplineCoordinateSpace::Local);
+		const FVector EndTangent = SplineComp->GetTangentAtSplinePoint(SplineIndex + 1, ESplineCoordinateSpace::Local);
+
+		//Set position and tangent data
+		SplineMeshComponent->SetStartAndEnd(StartPoint, StartTangent, EndPoint, EndTangent, true);
+
+		SplineMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	}
 }

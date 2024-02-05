@@ -6,6 +6,12 @@
 #include "GameFramework/Actor.h"
 #include "Quantizer.generated.h"
 
+class USplineComponent;
+class UStaticMesh;
+
+/// <summary>
+/// Nodes used in A* algorithm
+/// </summary>
 USTRUCT()
 struct FAStarNode
 {
@@ -50,12 +56,20 @@ struct FAStarNode
 	}
 };
 
+/// <summary>
+/// Allows FAStarNode to be used as a key in a TMap
+/// </summary>
+/// <param name="Thing"></param>
+/// <returns></returns>
 FORCEINLINE uint32 GetTypeHash(const FAStarNode& Thing)
 {
 	uint32 Hash = FCrc::MemCrc32(&Thing, sizeof(FAStarNode));
 	return Hash;
 }
 
+/// <summary>
+/// A list of points that defines a mask of points whose heights are sampled relative to a center point
+/// </summary>
 USTRUCT(BlueprintType)
 struct FGridMask
 {
@@ -67,6 +81,9 @@ struct FGridMask
 	TArray<FIntVector2> MaskPoints;
 };
 
+/// <summary>
+/// A point on the terrain that has been discretized
+/// </summary>
 USTRUCT(BlueprintType)
 struct FQuantizedSpace
 {
@@ -79,6 +96,7 @@ struct FQuantizedSpace
 	float Height;	//Height in Z axis of this point
 };
 
+
 UCLASS()
 class SPACEQUANTIZATION_API AQuantizer : public AActor
 {
@@ -87,10 +105,14 @@ class SPACEQUANTIZATION_API AQuantizer : public AActor
 public:	
 
 	//A* Data Structures
-	TArray<FAStarNode> Frontier;
-	TMap<FIntVector2, FIntVector2> Parents;
-	TArray<FAStarNode> Closed;
+	TArray<FAStarNode> Frontier;	//Unexplored nodes
+	TMap<FIntVector2, FIntVector2> Parents;	//Map of parent nodes, key = child, value = parent
+	TArray<FAStarNode> Closed;		//Explored nodes
 
+	//Finished path
+	TArray<FVector> Path;
+
+	//Cached source and destination points
 	FVector Source;
 	FVector Destination;
 
@@ -98,9 +120,7 @@ public:
 	UPROPERTY(EditAnywhere)
 	int Resolution = 1000;
 
-	/*
-	*	Weights of different types of costs in A* calculation
-	*/
+	//Weights of different types of costs in A* calculation
 	UPROPERTY(EditAnywhere)
 	float LengthCostWeight = 1;
 	UPROPERTY(EditAnywhere)
@@ -116,6 +136,7 @@ public:
 	//Dimensions of the array in Unreal units
 	FVector2D LandscapeDimensions;
 
+	//The terrain we are sampling from
 	UPROPERTY(EditAnywhere)
 	AActor* LandscapeActor;
 
@@ -125,9 +146,11 @@ public:
 	UPROPERTY(EditAnywhere)
 	float SampleMaxDepth = 5000;	//Max depth of terrain below 0
 
+	//Mask used for sampling points
 	UPROPERTY(EditAnywhere)
 	FGridMask SampleMask;
 
+	//Actors that show the positions of the source and destination 
 	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
 	AActor* SourceMarker;
 	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
@@ -136,6 +159,13 @@ public:
 	//Store these at the beginning of the algorithm for use later
 	FQuantizedSpace QuantizedSource;
 	FQuantizedSpace QuantizedDestination;
+
+	//Used to visualize path
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spline")
+	USplineComponent* SplineComp;
+
+	UPROPERTY(EditAnywhere, Category = "Spline")
+	UStaticMesh* SplineMesh;
 
 	// Sets default values for this actor's properties
 	AQuantizer();
@@ -147,8 +177,17 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	/// <summary>
+	/// Normally run once in BeginPlay, samples heights and populates CachedHeightmap
+	/// </summary>
 	void GenerateHeightmap();
 
+	/// <summary>
+	/// Sample terrain at location and store quantized result in OutResult
+	/// </summary>
+	/// <param name="StartLocation"></param>
+	/// <param name="OutResult"></param>
+	/// <returns></returns>
 	bool SampleTerrainHeight(FIntVector StartLocation, FQuantizedSpace& OutResult);
 
 public:	
@@ -163,6 +202,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	FQuantizedSpace Quantize(FVector Location);
 
+	/// <summary>
+	/// Pops the lowest cost node off the Frontier
+	/// </summary>
+	/// <returns></returns>
 	FAStarNode PopLowestCostNode();
 
 	/// <summary>
@@ -209,4 +252,9 @@ public:
 	/// <param name="LastNode"></param>
 	/// <returns></returns>
 	void TraceBackPath(const FAStarNode& LastNode, TArray<FVector>& Path);
+
+	/// <summary>
+	/// Draws path with spline
+	/// </summary>
+	void DrawPath();
 };

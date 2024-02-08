@@ -171,6 +171,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Spline")
 	UStaticMesh* SplineMesh;
 
+	//Material used for SplineMesh
+	UPROPERTY(EditAnywhere, Category = "Spline")
+	class UMaterialInterface* SplineMat;
+
 	//Forward axis of mesh
 	UPROPERTY(EditDefaultsOnly, Category = "Spline")
 	TEnumAsByte<ESplineMeshAxis::Type> ForwardAxis;

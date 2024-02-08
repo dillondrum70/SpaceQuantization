@@ -317,7 +317,7 @@ void AQuantizer::GenerateSuccessors(const FGridMask& GridMask, const FAStarNode&
 
 			Path.Empty();
 			Path.Add(Destination);
-			TraceBackPath(NextNode, Path);
+			TraceBackPath(Current, Path);
 			Path.Add(Source);
 
 			//Finish A*
@@ -455,5 +455,8 @@ void AQuantizer::DrawPath()
 		SplineMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
 		SplineMeshComponent->SetForwardAxis(ForwardAxis);
+
+		//Material
+		SplineMeshComponent->SetMaterial(0, SplineMat);
 	}
 }
